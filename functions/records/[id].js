@@ -1,3 +1,4 @@
+// functions/records/[id].js
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'DELETE,PUT,OPTIONS',
@@ -31,7 +32,6 @@ export async function onRequest(context) {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
-
       await kv.delete(key);
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -46,16 +46,14 @@ export async function onRequest(context) {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
-
       const data = await request.json();
       const oldRecord = JSON.parse(exists);
-      const updatedRecord = { 
-        ...oldRecord, 
+      const updatedRecord = {
+        ...oldRecord,
         ...data,
         id: oldRecord.id,
         createdAt: oldRecord.createdAt
       };
-
       await kv.put(key, JSON.stringify(updatedRecord));
       return new Response(JSON.stringify(updatedRecord), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
