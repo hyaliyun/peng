@@ -1,0 +1,7 @@
+name = "my-app"
+main = "./functions"
+compatibility_date = "2024-08-13"
+
+[[kv_namespaces]]
+binding = "FORM_RECORDS"
+id = "5cfb2d97241647e7adf9b38814d18f9b"
