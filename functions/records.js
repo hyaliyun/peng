@@ -26,8 +26,9 @@ export async function onRequest(context) {
       const list = await kv.list({ prefix: 'record:' });
       
       const records = await Promise.all(
-        list.keys.map(k => kv.get(k.name).then(v => v ? JSON.parse(v) : null)
+        list.keys.map(k => kv.get(k.name).then(v => v ? JSON.parse(v) : null))
       );
+      
       
       const validRecords = records.filter(Boolean);
       
