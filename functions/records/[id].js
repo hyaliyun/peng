@@ -1,9 +1,15 @@
-// functions/records/[id].js
+const ADMIN_PASSWORD = "hy012210yxj";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'DELETE,PUT,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type'
+  'Access-Control-Allow-Methods': 'DELETE,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization'
 };
+
+async function verifyAdmin(request) {
+  const authHeader = request.headers.get('Authorization');
+  return authHeader === `Bearer ${ADMIN_PASSWORD}`;
+}
 
 export async function onRequest(context) {
   const { request, env, params } = context;
@@ -14,48 +20,29 @@ export async function onRequest(context) {
     return new Response(null, { headers: corsHeaders });
   }
 
-  if (!id) {
-    return new Response(JSON.stringify({ error: '缺少ID' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-
-  const key = `record:${id}`;
-
   try {
-    if (request.method === 'DELETE') {
-      const exists = await kv.get(key);
-      if (!exists) {
-        return new Response(JSON.stringify({ error: '记录不存在' }), {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      await kv.delete(key);
-      return new Response(JSON.stringify({ success: true }), {
+    // 验证管理员权限
+    if (!(await verifyAdmin(request))) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    if (request.method === 'PUT') {
-      const exists = await kv.get(key);
-      if (!exists) {
-        return new Response(JSON.stringify({ error: '记录不存在' }), {
+    const key = `record:${id}`;
+    const existing = await kv.get(key);
+
+    // DELETE /records/:id - 删除记录
+    if (request.method === 'DELETE') {
+      if (!existing) {
+        return new Response(JSON.stringify({ error: 'Record not found' }), {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
-      const data = await request.json();
-      const oldRecord = JSON.parse(exists);
-      const updatedRecord = {
-        ...oldRecord,
-        ...data,
-        id: oldRecord.id,
-        createdAt: oldRecord.createdAt
-      };
-      await kv.put(key, JSON.stringify(updatedRecord));
-      return new Response(JSON.stringify(updatedRecord), {
+
+      await kv.delete(key);
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }

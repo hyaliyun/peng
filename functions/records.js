@@ -1,9 +1,15 @@
-// functions/records.js
+const ADMIN_PASSWORD = "hy012210yxj";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type'
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization'
 };
+
+async function verifyAdmin(request) {
+  const authHeader = request.headers.get('Authorization');
+  return authHeader === `Bearer ${ADMIN_PASSWORD}`;
+}
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -14,49 +20,51 @@ export async function onRequest(context) {
   }
 
   try {
+    // GET /records - 获取所有记录
     if (request.method === 'GET') {
-      // 获取所有记录
+      const isAdmin = await verifyAdmin(request);
       const list = await kv.list({ prefix: 'record:' });
-      const recordsRaw = await Promise.all(
-        list.keys.map(k => kv.get(k.name).then(v => v ? JSON.parse(v) : null))
+      
+      const records = await Promise.all(
+        list.keys.map(k => kv.get(k.name).then(v => v ? JSON.parse(v) : null)
       );
-      const records = recordsRaw
-        .filter(Boolean)
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-      return new Response(JSON.stringify(records), {
+      
+      const validRecords = records.filter(Boolean);
+      
+      // 按时间倒序排序
+      validRecords.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      return new Response(JSON.stringify(validRecords), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
+    // POST /records - 创建新记录
     if (request.method === 'POST') {
       const data = await request.json();
-
-      // 验证必填
-      if (!data.name || !data.contact || !data.idNumber || !data.location) {
-        return new Response(JSON.stringify({ error: '缺少必要字段' }), {
+      
+      // 验证必填字段
+      const requiredFields = ['name', 'contact', 'idNumber', 'location'];
+      const missingFields = requiredFields.filter(field => !data[field]);
+      if (missingFields.length > 0) {
+        return new Response(JSON.stringify({ 
+          error: `缺少必填字段: ${missingFields.join(', ')}` 
+        }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
 
-      // 手机号格式
-      if (!/^1[3-9]\d{9}$/.test(data.contact)) {
-        return new Response(JSON.stringify({ error: '手机号格式不正确' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      const id = crypto.randomUUID();
+      const id = Date.now().toString();
       const record = {
         ...data,
         id,
-        createdAt: new Date().toISOString(),
+        createdAt: new Date().toISOString()
       };
 
       await kv.put(`record:${id}`, JSON.stringify(record));
       return new Response(JSON.stringify(record), {
+        status: 201,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
